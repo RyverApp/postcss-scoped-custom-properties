@@ -34,7 +34,7 @@
 }
 
 .two {
-    .one {
+    & .one {
         color: var(--var0-0);
     }
 }
