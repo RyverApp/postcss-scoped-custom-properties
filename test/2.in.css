@@ -1,0 +1,4 @@
+.one {
+    --var0: green;
+    color: var(--var0);
+}

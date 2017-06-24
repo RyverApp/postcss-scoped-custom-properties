@@ -18,6 +18,10 @@ function ignoreSpace(value) {
     return value.replace(/\s*/mg, ' ');
 }
 
+function read(number, inOrOut) {
+    return fs.readFileSync('./test/' + number + '.' + inOrOut + '.css', 'utf8')
+}
+
 function run(input, output, opts) {
     generate.reset();
     return postcss([ plugin(opts) ]).process(input)
@@ -28,10 +32,14 @@ function run(input, output, opts) {
 }
 
 
-it('processes simple rule', () => {
-    return run(fs.readFileSync('./test/0.in.css', 'utf8'), fs.readFileSync('./test/0.out.css', 'utf8'), { generate: generate });
+it('processes simple rule', () => {    
+    return run(read(0, 'in'), read(0, 'out'), { generate: generate });
 });
 
-it('processes nested rule', () => {
-    return run(fs.readFileSync('./test/1.in.css', 'utf8'), fs.readFileSync('./test/1.out.css', 'utf8'), { generate: generate });
+it('processes nested rule', () => {    
+    return run(read(1, 'in'), read(1, 'out'), { generate: generate });
+});
+
+it('processes same rule', () => {    
+    return run(read(2, 'in'), read(2, 'out'), { generate: generate });
 });

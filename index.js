@@ -1,8 +1,8 @@
 var postcss = require('postcss');
 var shortid = require('shortid');
 
-var CSS_CUSTOM_PROP_RE = /\s*(--[^:\s]+)/;
-var CSS_VAR_RE = /var\(\s*([^,\)\s]+).*?\)/;
+var CSS_CUSTOM_PROP_RE = /^\s*(--[^:\s]+)/;
+var CSS_VAR_RE = /^\s*var\(\s*([^,\)\s]+).*?\)/;
 
 function path(node) {
     var res = [node];
@@ -32,7 +32,7 @@ function createCleanClone(nodePath) {
 }
 
 function hash(node) {
-    return node.source.input.id + ',' + (node.source.start.line ^ node.source.end.line) + ',' + (node.source.start.column ^ node.source.end.column);
+    return node.source.input.id + ',' + node.source.start.line + ',' + node.source.end.line + ',' + node.source.start.column + ',' + node.source.end.column;
 }
 
 function ensure(v, o) {
@@ -58,7 +58,7 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
     opts = opts || {};
     opts.generate = 'generate' in opts ? opts.generate : shortid.generate;
 
-    return function (root, result) {
+    return function (root, result) {        
         var idx;
         var varUse = {};
         var varUseByNode = {};
@@ -70,7 +70,7 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
         root.walkDecls(function (decl) {
             var match;
             if ((match = CSS_CUSTOM_PROP_RE.exec(decl.prop)) && decl.parent.selector !== ':root') {
-                var k = hash(decl.parent);
+                var k = hash(decl.parent);                
                 var propName = match[1];                   
                 customDeclaration[propName] = ensure(customDeclaration[propName], []);
                 customDeclaration[propName].push(k);                                                
@@ -85,7 +85,7 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
         root.walkDecls(function (decl) {
             var match;
             if ((match = CSS_VAR_RE.exec(decl.value))) {                
-                var k = hash(decl.parent);
+                var k = hash(decl.parent);                
                 var propName = match[1];                
                 if (customDeclaration[propName]) {                    
                     varUse[propName] = ensure(varUse[propName], []);
@@ -124,26 +124,39 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
                     if (consumedCustomByNode[customDeclarationK]) continue;
                     consumedCustomByNode[customDeclarationK] = true;
                     
-                    var nextScopeRule = createCleanClone(customDeclarationByNode[customDeclarationK].clone);
-                    varUseByNode[varUseK].node.after(nextScopeRule[0]);
+                    if (varUseK !== customDeclarationK) {
+                        var nextScopeRule = createCleanClone(customDeclarationByNode[customDeclarationK].clone);
+                        varUseByNode[varUseK].node.after(nextScopeRule[0]);
 
-                    var nextInnerRule = varUseByNode[varUseK].node.clone({ 
-                        selector: '& ' + varUseByNode[varUseK].node.selector,
-                        raws: { } 
-                    });
+                        var nextInnerRule = varUseByNode[varUseK].node.clone({ 
+                            selector: '& ' + varUseByNode[varUseK].node.selector,
+                            raws: { } 
+                        });
 
-                    nextInnerRule.removeAll();
-                    
-                    for (var customPropName in customDeclarationByNode[customDeclarationK].props) {
-                        if (varUseByNode[varUseK].props[customPropName]) {
-                            nextInnerRule.append(postcss.decl({ 
-                                prop: varUseByNode[varUseK].props[customPropName].prop, 
-                                value: 'var(' + customDeclarationByNode[customDeclarationK].remap[customPropName] + ')' 
-                            }));
+                        nextInnerRule.removeAll();
+                        
+                        for (var customPropName in customDeclarationByNode[customDeclarationK].props) {
+                            if (varUseByNode[varUseK].props[customPropName]) {
+                                nextInnerRule.append(postcss.decl({ 
+                                    prop: varUseByNode[varUseK].props[customPropName].prop, 
+                                    value: 'var(' + customDeclarationByNode[customDeclarationK].remap[customPropName] + ')' 
+                                }));
+                            }
+                        }
+                        
+                        nextScopeRule[nextScopeRule.length - 1].append(nextInnerRule);             
+                    } else {
+                        var nextInnerRule = varUseByNode[varUseK].node;
+                        for (var customPropName in customDeclarationByNode[customDeclarationK].props) {
+                            if (varUseByNode[varUseK].props[customPropName]) {
+                                nextInnerRule.append(postcss.decl({
+                                    prop: varUseByNode[varUseK].props[customPropName].prop,
+                                    value: 'var(' + customDeclarationByNode[customDeclarationK].remap[customPropName] + ')'
+                                }));
+                                varUseByNode[varUseK].props[customPropName].remove();
+                            }
                         }
                     }
-                    
-                    nextScopeRule[nextScopeRule.length - 1].append(nextInnerRule);             
                 }
             }
         }

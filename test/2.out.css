@@ -1,0 +1,7 @@
+:root {
+    --var0-0: green;
+}
+
+.one {
+    color: var(--var0-0);
+}
