@@ -1,0 +1,13 @@
+.one {
+    color: var(--var0);
+}
+
+.two {
+    --var0: red;
+}
+
+.three {
+    .four {
+        --var0: green;
+    }
+}
