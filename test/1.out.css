@@ -3,6 +3,10 @@
     --var0-1: green;
 }
 
+:root {
+    --var0: blue;
+}
+
 .one {
     color: var(--var0);
 }
