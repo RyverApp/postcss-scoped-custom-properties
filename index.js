@@ -50,10 +50,13 @@ function cleanup(node) {
     }
 }
 
+function linSelector(node) {
+    return path(node).map(node => node.selector).join(' ');
+}
+
 module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
     opts = opts || {};
-    
-    var generate = opts.generate || shortid.generate;
+    opts.generate = 'generate' in opts ? opts.generate : shortid.generate;
 
     return function (root, result) {
         var idx;
@@ -98,9 +101,10 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
         var scopedCustomRootRule = postcss.rule({ selector: ':root' });        
 
         for (var k in customDeclarationByNode) {
+            var id = opts.generate();
             for (var usePropName in customDeclarationByNode[k].props) {
                 var prevDecl = customDeclarationByNode[k].props[usePropName];
-                var nextDecl = prevDecl.clone({ prop: prevDecl.prop + '-' + generate(), raws: { between: ': ' }});
+                var nextDecl = prevDecl.clone({ prop: prevDecl.prop + '-' + id, raws: { between: ': ' }});
 
                 scopedCustomRootRule.append(nextDecl);
 
@@ -123,7 +127,10 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
                     var nextScopeRule = createCleanClone(customDeclarationByNode[customDeclarationK].clone);
                     varUseByNode[varUseK].node.after(nextScopeRule[0]);
 
-                    var nextInnerRule = varUseByNode[varUseK].node.clone({ raws: { } });
+                    var nextInnerRule = varUseByNode[varUseK].node.clone({ 
+                        selector: '& ' + varUseByNode[varUseK].node.selector,
+                        raws: { } 
+                    });
 
                     nextInnerRule.removeAll();
                     

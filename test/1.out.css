@@ -12,15 +12,15 @@
 }
 
 .three {
-    .four {
-        .one {
+    & .four {
+        & .one {
             color: var(--var0-1);
         }
     }
 }
 
 .two {
-    .one {
+    & .one {
         color: var(--var0-0);
     }
 }

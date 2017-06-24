@@ -11,7 +11,7 @@
 }
 
 .three {
-    .four {
+    & .four {
         --var0: green;
     }
 }
