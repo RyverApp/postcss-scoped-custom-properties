@@ -40,6 +40,9 @@
 }
 ```
 
+## Note
+Currently, only nested declarations with `&` are emitted.  Soon, selectors will be chained appropriately unless otherwise specified.
+
 ## Usage
 
 ```js

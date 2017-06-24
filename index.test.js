@@ -22,8 +22,11 @@ function read(number, inOrOut) {
     return fs.readFileSync('./test/' + number + '.' + inOrOut + '.css', 'utf8')
 }
 
-function run(input, output, opts) {
-    generate.reset();
+function run(short, opts) {
+    opts = opts || {};
+    opts.generate = opts.generate || (generate.reset(), generate);
+    var input = fs.readFileSync('./test/' + short + '.css', 'utf8');
+    var output = fs.readFileSync('./test/' + short + '.expected.css', 'utf8');    
     return postcss([ plugin(opts) ]).process(input)
         .then(result => {
             expect(ignoreSpace(result.css)).toEqual(ignoreSpace(output));
@@ -31,15 +34,14 @@ function run(input, output, opts) {
         });
 }
 
-
-it('processes simple rule', () => {    
-    return run(read(0, 'in'), read(0, 'out'), { generate: generate });
+it('processes basic rule', () => {    
+    return run('basic-declaration');
 });
 
 it('processes nested rule', () => {    
-    return run(read(1, 'in'), read(1, 'out'), { generate: generate });
+    return run('nested-declaration');
 });
 
 it('processes same rule', () => {    
-    return run(read(2, 'in'), read(2, 'out'), { generate: generate });
+    return run('declaration-in-same-scope-as-use');
 });
