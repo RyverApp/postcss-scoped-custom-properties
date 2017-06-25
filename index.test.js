@@ -48,4 +48,8 @@ it('can have use in same scope ad declaration', () => {
 
 it('can use same prop more than once', () => {
     return run('use-same-more-than-once');
+});
+
+it('can use a scoped variable in a nested scope', () => {
+    return run('nested-use');
 })

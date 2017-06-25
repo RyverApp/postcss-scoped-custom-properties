@@ -50,10 +50,6 @@ function cleanup(node) {
     }
 }
 
-function linSelector(node) {
-    return path(node).map(node => node.selector).join(' ');
-}
-
 module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
     opts = opts || {};
     opts.generate = 'generate' in opts ? opts.generate : shortid.generate;
@@ -141,24 +137,19 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
                     // if the rule consuming the custom prop is not the same as where it was declared
                     if (useNodeId !== decNodeId) {
                         // create a clone of the rules that define the scope where the declaration took place
-                        var decScope = createCleanClone(decByNode[decNodeId].clone);
-                        // place this after the rule where the property was consumed
-                        useByNode[useNodeId].node.after(decScope[0]);
+                        var decScopePath = createCleanClone(decByNode[decNodeId].clone);                        
                         // clone the consuming scope and update the selector
-                        // todo: this should be a clone path
-                        var useScope = useByNode[useNodeId].node.clone({ 
-                            selector: '& ' + useByNode[useNodeId].node.selector,
-                            raws: { } 
-                        });
-                        // empty the use scope so we only contain the remapped custom prop uses
-                        useScope.removeAll();
+                        var useScopeOrigPath = path(useByNode[useNodeId].node);
+                        var useScopePath = createCleanClone(useScopeOrigPath);
+                        // use the nested selector for now
+                        useScopePath[0].selector = '& ' + useScopePath[0].selector;                        
                         // go over each prop name that was declared by the declaring rule
                         for (var decPropName in decByNode[decNodeId].props) {
                             // put every prop in the declaring rule that is also in the consuming rule in the set
                             if (useByNode[useNodeId].props[decPropName]) {  
                                 for (var j = 0, m = useByNode[useNodeId].props[decPropName].length; j < m; j++) {
                                     var currentUse = useByNode[useNodeId].props[decPropName][j];
-                                    useScope.append(postcss.decl({
+                                    useScopePath[useScopePath.length - 1].append(postcss.decl({
                                         prop: currentUse.decl.prop,
                                         value: currentUse.match[2] 
                                             ? 'var(' + decByNode[decNodeId].remap[decPropName] + currentUse.match[2]
@@ -167,15 +158,17 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
                                 }                                
                             }
                         }
-                        
-                        decScope[decScope.length - 1].append(useScope);             
+                        // append the new use scope to the tail of the dec scope
+                        decScopePath[decScopePath.length - 1].append(useScopePath[0]);          
+                        // place this after the rule where the property was consumed
+                        useScopeOrigPath[0].after(decScopePath[0]);   
                     } else {
-                        var useScope = useByNode[useNodeId].node;
+                        var useScopePath = useByNode[useNodeId].node;
                         for (var decPropName in decByNode[decNodeId].props) {
                             if (useByNode[useNodeId].props[decPropName]) {
                                 for (var j = 0, m = useByNode[useNodeId].props[decPropName].length; j < m; j++) {
                                     var currentUse = useByNode[useNodeId].props[decPropName][j];
-                                    useScope.append(postcss.decl({
+                                    useScopePath.append(postcss.decl({
                                         prop: currentUse.decl.prop,
                                         value: currentUse.match[2]
                                             ? 'var(' + decByNode[decNodeId].remap[decPropName] + currentUse.match[2]
@@ -189,7 +182,7 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
                 }
             }
         }
-
+        // cleanup any scoped declaration nodes
         for (var nodeId in decByNode) {
             for (var usePropName in decByNode[nodeId].props) {
                 cleanup(decByNode[nodeId].props[usePropName]);                

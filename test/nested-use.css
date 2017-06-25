@@ -1,0 +1,13 @@
+:root {
+    --var0: blue;
+}
+
+.one {
+    & .nested {
+        color: var(--var0);
+    }
+}
+
+.two {
+    --var0: red;
+}
