@@ -2,7 +2,7 @@ var postcss = require('postcss');
 var shortid = require('shortid');
 
 var CSS_CUSTOM_PROP_RE = /^\s*(--[^:\s]+)/;
-var CSS_VAR_RE = /^\s*var\(\s*([^,\)\s]+).*?\)/;
+var CSS_VAR_RE = /^\s*var\(\s*([^,\)\s]+)(.*?)\)/;
 
 function path(node) {
     var res = [node];
@@ -60,23 +60,24 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
 
     return function (root, result) {        
         var idx;
-        var varUse = {};
-        var varUseByNode = {};
-        var customDeclaration = {};
-        var customDeclarationByNode = {};
-        var customRemap = {};
+
+        var use = {};
+        var useByNode = {};
+        var dec = {};
+        var decByNode = {};        
 
         idx = 0;        
-        root.walkDecls(function (decl) {
+        root.walkDecls(function (decl) {                  
             var match;
+            // find all custom property declarations that are not in the root scope
             if ((match = CSS_CUSTOM_PROP_RE.exec(decl.prop)) && decl.parent.selector !== ':root') {
-                var k = hash(decl.parent);                
+                var decNodeId = hash(decl.parent);                
                 var propName = match[1];                   
-                customDeclaration[propName] = ensure(customDeclaration[propName], []);
-                customDeclaration[propName].push(k);                                                
-                customDeclarationByNode[k] = ensure(customDeclarationByNode[k], { node: decl.parent, idx: idx, props: {}, remap: {}, clone: void 0 });
-                customDeclarationByNode[k].props[propName] = ensure(customDeclarationByNode[k].props[propName], {});
-                customDeclarationByNode[k].props[propName] = decl;
+                dec[propName] = ensure(dec[propName], []);
+                dec[propName].push(decNodeId);                                                
+                decByNode[decNodeId] = ensure(decByNode[decNodeId], { node: decl.parent, idx: idx, props: {}, remap: {}, clone: void 0 });
+                decByNode[decNodeId].props[propName] = ensure(decByNode[decNodeId].props[propName], {});
+                decByNode[decNodeId].props[propName] = decl;
             }
             idx++;
         });    
@@ -84,76 +85,104 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
         idx = 0;
         root.walkDecls(function (decl) {
             var match;
+            // find all var(...) expressions that use a variable that is declared in a non-root scope
             if ((match = CSS_VAR_RE.exec(decl.value))) {                
-                var k = hash(decl.parent);                
+                var useNodeId = hash(decl.parent);                
                 var propName = match[1];                
-                if (customDeclaration[propName]) {                    
-                    varUse[propName] = ensure(varUse[propName], []);
-                    varUse[propName].push(k);                       
-                    varUseByNode[k] = ensure(varUseByNode[k], { node: decl.parent, idx: idx, props: {} });
-                    varUseByNode[k].props[propName] = ensure(varUseByNode[k].props[propName], {});   
-                    varUseByNode[k].props[propName] = decl;                                                
+                if (dec[propName]) {                    
+                    use[propName] = ensure(use[propName], []);
+                    use[propName].push(useNodeId);                       
+                    useByNode[useNodeId] = ensure(useByNode[useNodeId], { node: decl.parent, idx: idx, props: {} });
+                    useByNode[useNodeId].props[propName] = ensure(useByNode[useNodeId].props[propName], []);   
+                    useByNode[useNodeId].props[propName].push({ decl: decl, match: match});                                                
                 }
             }
             idx++;
         });         
 
-        var scopedCustomRootRule = postcss.rule({ selector: ':root' });        
+        var remapDecRule = postcss.rule({ selector: ':root' });        
 
-        for (var k in customDeclarationByNode) {
-            var id = opts.generate();
-            for (var usePropName in customDeclarationByNode[k].props) {
-                var prevDecl = customDeclarationByNode[k].props[usePropName];
-                var nextDecl = prevDecl.clone({ prop: prevDecl.prop + '-' + id, raws: { between: ': ' }});
+        // for all declarations in a custom scope, we create a :root scoped declaration, with the same value and a unique name
+        for (var nodeId in decByNode) {
+            var tag = opts.generate();
 
-                scopedCustomRootRule.append(nextDecl);
-
-                customDeclarationByNode[k].remap[prevDecl.prop] = nextDecl.prop;
+            for (var usePropName in decByNode[nodeId].props) {
+                // original non-scoped declaration
+                var prevDec = decByNode[nodeId].props[usePropName];
+                // unique root scoped declaration
+                var nextDec = prevDec.clone({ prop: prevDec.prop + '-' + tag, raws: { between: ': ' }});
+                
+                remapDecRule.append(nextDec);
+                
+                // track the new prop name vs. the old prop name
+                decByNode[nodeId].remap[prevDec.prop] = nextDec.prop;
             }
-            customDeclarationByNode[k].clone = createCleanClone(path(customDeclarationByNode[k].node));
+            
+            decByNode[nodeId].clone = createCleanClone(path(decByNode[nodeId].node));
         }
 
-        root.prepend(scopedCustomRootRule);
+        root.prepend(remapDecRule);
 
-        for (var varUseK in varUseByNode) {
-            var consumedCustomByNode = {};
-            for (var usePropName in varUseByNode[varUseK].props) {
-                for (var i = 0, l = customDeclaration[usePropName].length; i < l; i++) {
-                    var customDeclarationK = customDeclaration[usePropName][i];
-                    
-                    if (consumedCustomByNode[customDeclarationK]) continue;
-                    consumedCustomByNode[customDeclarationK] = true;
-                    
-                    if (varUseK !== customDeclarationK) {
-                        var nextScopeRule = createCleanClone(customDeclarationByNode[customDeclarationK].clone);
-                        varUseByNode[varUseK].node.after(nextScopeRule[0]);
-
-                        var nextInnerRule = varUseByNode[varUseK].node.clone({ 
-                            selector: '& ' + varUseByNode[varUseK].node.selector,
+        // go through each rule where a custom prop was consumed
+        for (var useNodeId in useByNode) {
+            // do not consume the same declaration rule twice
+            var consumed = {};        
+            // go though each custom prop that was consumed
+            for (var usePropName in useByNode[useNodeId].props) {
+                // go through each rule in which a custom prop with the correct name was declared
+                for (var i = 0, l = dec[usePropName].length; i < l; i++) {
+                    // track the rule id
+                    var decNodeId = dec[usePropName][i];
+                    // do not consume the same declaration rule twice
+                    if (consumed[decNodeId]) {
+                        continue;
+                    }
+                    consumed[decNodeId] = true;
+                    // if the rule consuming the custom prop is not the same as where it was declared
+                    if (useNodeId !== decNodeId) {
+                        // create a clone of the rules that define the scope where the declaration took place
+                        var decScope = createCleanClone(decByNode[decNodeId].clone);
+                        // place this after the rule where the property was consumed
+                        useByNode[useNodeId].node.after(decScope[0]);
+                        // clone the consuming scope and update the selector
+                        // todo: this should be a clone path
+                        var useScope = useByNode[useNodeId].node.clone({ 
+                            selector: '& ' + useByNode[useNodeId].node.selector,
                             raws: { } 
                         });
-
-                        nextInnerRule.removeAll();
-                        
-                        for (var customPropName in customDeclarationByNode[customDeclarationK].props) {
-                            if (varUseByNode[varUseK].props[customPropName]) {
-                                nextInnerRule.append(postcss.decl({ 
-                                    prop: varUseByNode[varUseK].props[customPropName].prop, 
-                                    value: 'var(' + customDeclarationByNode[customDeclarationK].remap[customPropName] + ')' 
-                                }));
+                        // empty the use scope so we only contain the remapped custom prop uses
+                        useScope.removeAll();
+                        // go over each prop name that was declared by the declaring rule
+                        for (var decPropName in decByNode[decNodeId].props) {
+                            // put every prop in the declaring rule that is also in the consuming rule in the set
+                            if (useByNode[useNodeId].props[decPropName]) {  
+                                for (var j = 0, m = useByNode[useNodeId].props[decPropName].length; j < m; j++) {
+                                    var currentUse = useByNode[useNodeId].props[decPropName][j];
+                                    useScope.append(postcss.decl({
+                                        prop: currentUse.decl.prop,
+                                        value: currentUse.match[2] 
+                                            ? 'var(' + decByNode[decNodeId].remap[decPropName] + currentUse.match[2]
+                                            : 'var(' + decByNode[decNodeId].remap[decPropName] + ')'
+                                    }));
+                                }                                
                             }
                         }
                         
-                        nextScopeRule[nextScopeRule.length - 1].append(nextInnerRule);             
+                        decScope[decScope.length - 1].append(useScope);             
                     } else {
-                        var nextInnerRule = varUseByNode[varUseK].node;
-                        for (var customPropName in customDeclarationByNode[customDeclarationK].props) {
-                            if (varUseByNode[varUseK].props[customPropName]) {
-                                nextInnerRule.append(postcss.decl({
-                                    prop: varUseByNode[varUseK].props[customPropName].prop,
-                                    value: 'var(' + customDeclarationByNode[customDeclarationK].remap[customPropName] + ')'
-                                }));
-                                varUseByNode[varUseK].props[customPropName].remove();
+                        var useScope = useByNode[useNodeId].node;
+                        for (var decPropName in decByNode[decNodeId].props) {
+                            if (useByNode[useNodeId].props[decPropName]) {
+                                for (var j = 0, m = useByNode[useNodeId].props[decPropName].length; j < m; j++) {
+                                    var currentUse = useByNode[useNodeId].props[decPropName][j];
+                                    useScope.append(postcss.decl({
+                                        prop: currentUse.decl.prop,
+                                        value: currentUse.match[2]
+                                            ? 'var(' + decByNode[decNodeId].remap[decPropName] + currentUse.match[2]
+                                            : 'var(' + decByNode[decNodeId].remap[decPropName] + ')'
+                                    }));
+                                    currentUse.decl.remove();
+                                }
                             }
                         }
                     }
@@ -161,9 +190,9 @@ module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
             }
         }
 
-        for (var k in customDeclarationByNode) {
-            for (var usePropName in customDeclarationByNode[k].props) {
-                cleanup(customDeclarationByNode[k].props[usePropName]);                
+        for (var nodeId in decByNode) {
+            for (var usePropName in decByNode[nodeId].props) {
+                cleanup(decByNode[nodeId].props[usePropName]);                
             }
         }
     };

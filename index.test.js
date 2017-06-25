@@ -34,14 +34,18 @@ function run(short, opts) {
         });
 }
 
-it('processes basic rule', () => {    
+it('can support a basic scoped declaration', () => {    
     return run('basic-declaration');
 });
 
-it('processes nested rule', () => {    
+it('can support a nested scoped declaration', () => {    
     return run('nested-declaration');
 });
 
-it('processes same rule', () => {    
+it('can have use in same scope ad declaration', () => {    
     return run('declaration-in-same-scope-as-use');
 });
+
+it('can use same prop more than once', () => {
+    return run('use-same-more-than-once');
+})
