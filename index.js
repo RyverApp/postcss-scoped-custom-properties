@@ -50,7 +50,7 @@ function cleanup(node) {
     }
 }
 
-module.exports = postcss.plugin('postcss-scoped-vars', function (opts) {
+module.exports = postcss.plugin('postcss-scoped-custom-properties', function (opts) {
     opts = opts || {};
     opts.generate = 'generate' in opts ? opts.generate : shortid.generate;
 

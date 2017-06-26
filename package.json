@@ -1,21 +1,21 @@
 {
-  "name": "postcss-scoped-vars",
+  "name": "postcss-scoped-custom-properties",
   "version": "0.0.0",
-  "description": "PostCSS plugin for scoped vars.",
+  "description": "PostCSS plugin to enable some aspects of scoped custom properties.",
   "keywords": [
     "postcss",
     "css",
     "postcss-plugin",
     "scoped",
-    "vars"
+    "custom-properties"
   ],
   "author": "Michael Morton <mmorton@icanhascode.com>",
   "license": "MIT",
-  "repository": "mmorton/postcss-scoped-vars",
+  "repository": "mmorton/postcss-scoped-custom-properties",
   "bugs": {
-    "url": "https://github.com/mmorton/postcss-scoped-vars/issues"
+    "url": "https://github.com/mmorton/postcss-scoped-custom-properties/issues"
   },
-  "homepage": "https://github.com/mmorton/postcss-scoped-vars",
+  "homepage": "https://github.com/mmorton/postcss-scoped-custom-properties",
   "dependencies": {
     "postcss": "^6.0.1",
     "shortid": "^2.2.8"
