@@ -11,11 +11,11 @@
   ],
   "author": "Michael Morton <mmorton@icanhascode.com>",
   "license": "MIT",
-  "repository": "mmorton/postcss-scoped-custom-properties",
+  "repository": "ryverapp/postcss-scoped-custom-properties",
   "bugs": {
-    "url": "https://github.com/mmorton/postcss-scoped-custom-properties/issues"
+    "url": "https://github.com/ryverapp/postcss-scoped-custom-properties/issues"
   },
-  "homepage": "https://github.com/mmorton/postcss-scoped-custom-properties",
+  "homepage": "https://github.com/ryverapp/postcss-scoped-custom-properties",
   "dependencies": {
     "postcss": "^6.0.1",
     "shortid": "^2.2.8"
