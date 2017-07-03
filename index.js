@@ -161,8 +161,12 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
                         // append the new use scope to the tail of the dec scope
                         decScopePath[decScopePath.length - 1].append(useScopePath[0]);
                         // place this after the rule where the property was consumed
-                        // todo: postcss v6: useScopeOrigPath[0].after(decScopePath[0]);
-                        useScopeOrigPath[0].node.parent.insertAfter(useScopeOrigPath[0].node, decScopePath[0].node);
+                        if ('after' in useScopeOrigPath[0]) {
+                            useScopeOrigPath[0].after(decScopePath[0]);
+                        } else {
+                            // legacy support for postcss v5
+                            useScopeOrigPath[0].node.parent.insertAfter(useScopeOrigPath[0].node, decScopePath[0].node);
+                        }
                     } else {
                         var useScopePath = useByNode[useNodeId].node;
                         for (var decPropName in decByNode[decNodeId].props) {
