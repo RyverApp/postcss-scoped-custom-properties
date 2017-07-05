@@ -2,9 +2,9 @@ var postcss = require('postcss');
 var shortid = require('shortid');
 
 var CSS_CUSTOM_PROP_RE = /^\s*(--[^:\s]+)/;
-var CSS_VAR_RE = /^\s*var\(\s*([^,\)\s]+)(.*?)\)/;
+var CSS_VAR_RE = /var\(\s*([^,\)\s]+)(.*?)\)/g;
 
-function path(node) {
+function nodePath(node) {
     var res = [node];
     while ((node = node.parent, node.type !== 'root')) {
         res = [node].concat(res);
@@ -12,7 +12,7 @@ function path(node) {
     return res;
 }
 
-function createCleanClone(nodePath) {
+function cloneFromPath(nodePath) {
     var res = Array(nodePath.length);
     res[0] = nodePath[0].clone();
 
@@ -31,23 +31,32 @@ function createCleanClone(nodePath) {
     return res;
 }
 
-function hash(node) {
+function getNodeId(node) {
     return node.source.input.id + ',' + node.source.start.line + ',' + node.source.end.line + ',' + node.source.start.column + ',' + node.source.end.column;
 }
 
-function ensure(v, o) {
-    return v ? v : o;
+function ensure(value, otherwise) {
+    return value ? value : otherwise;
 }
 
-function cleanup(node) {
+function cleanupNode(node) {
     if (node.type === 'root') {
         return;
     }
     var parent = node.parent;
     node.remove();
     if (parent.nodes.length == 0) {
-        cleanup(parent);
+        cleanupNode(parent);
     }
+}
+
+function matchAll(re, text) {
+    re.lastIndex = 0;
+    var res = [], match;
+    while ((match = re.exec(text)) !== null) {
+        res = res.concat(match);
+    }
+    return res.length > 0 ? res : null;
 }
 
 module.exports = postcss.plugin('postcss-scoped-custom-properties', function (opts) {
@@ -67,7 +76,7 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
             var match;
             // find all custom property declarations that are not in the root scope
             if ((match = CSS_CUSTOM_PROP_RE.exec(decl.prop)) && decl.parent.selector !== ':root') {
-                var decNodeId = hash(decl.parent);
+                var decNodeId = getNodeId(decl.parent);
                 var propName = match[1];
                 dec[propName] = ensure(dec[propName], []);
                 dec[propName].push(decNodeId);
@@ -80,17 +89,20 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
 
         idx = 0;
         root.walkDecls(function (decl) {
-            var match;
+            var matches;
             // find all var(...) expressions that use a variable that is declared in a non-root scope
-            if ((match = CSS_VAR_RE.exec(decl.value))) {
-                var useNodeId = hash(decl.parent);
-                var propName = match[1];
-                if (dec[propName]) {
-                    use[propName] = ensure(use[propName], []);
-                    use[propName].push(useNodeId);
-                    useByNode[useNodeId] = ensure(useByNode[useNodeId], { node: decl.parent, idx: idx, props: {} });
-                    useByNode[useNodeId].props[propName] = ensure(useByNode[useNodeId].props[propName], []);
-                    useByNode[useNodeId].props[propName].push({ decl: decl, match: match});
+            if ((matches = matchAll(CSS_VAR_RE, decl.value))) {
+                var useNodeId = getNodeId(decl.parent);
+                for (var i = 0, l = matches.length; i < l; i++) {
+                    var match = matches[i];
+                    var propName = match[1];
+                    if (dec[propName]) {
+                        use[propName] = ensure(use[propName], []);
+                        use[propName].push(useNodeId);
+                        useByNode[useNodeId] = ensure(useByNode[useNodeId], { node: decl.parent, idx: idx, props: {} });
+                        useByNode[useNodeId].props[propName] = ensure(useByNode[useNodeId].props[propName], []);
+                        useByNode[useNodeId].props[propName].push({ decl: decl, match: match });
+                    }
                 }
             }
             idx++;
@@ -114,7 +126,7 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
                 decByNode[nodeId].remap[prevDec.prop] = nextDec.prop;
             }
 
-            decByNode[nodeId].clone = createCleanClone(path(decByNode[nodeId].node));
+            decByNode[nodeId].clone = cloneFromPath(nodePath(decByNode[nodeId].node));
         }
 
         root.prepend(remapDecRule);
@@ -137,10 +149,10 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
                     // if the rule consuming the custom prop is not the same as where it was declared
                     if (useNodeId !== decNodeId) {
                         // create a clone of the rules that define the scope where the declaration took place
-                        var decScopePath = createCleanClone(decByNode[decNodeId].clone);
+                        var decScopePath = cloneFromPath(decByNode[decNodeId].clone);
                         // clone the consuming scope and update the selector
-                        var useScopeOrigPath = path(useByNode[useNodeId].node);
-                        var useScopePath = createCleanClone(useScopeOrigPath);
+                        var useScopeOrigPath = nodePath(useByNode[useNodeId].node);
+                        var useScopePath = cloneFromPath(useScopeOrigPath);
                         // use the nested selector for now
                         useScopePath[0].selector = '& ' + useScopePath[0].selector;
                         // go over each prop name that was declared by the declaring rule
@@ -190,7 +202,7 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
         // cleanup any scoped declaration nodes
         for (var nodeId in decByNode) {
             for (var usePropName in decByNode[nodeId].props) {
-                cleanup(decByNode[nodeId].props[usePropName]);
+                cleanupNode(decByNode[nodeId].props[usePropName]);
             }
         }
     };

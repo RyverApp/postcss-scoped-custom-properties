@@ -52,4 +52,8 @@ it('can use same prop more than once', () => {
 
 it('can use a scoped variable in a nested scope', () => {
     return run('nested-use');
-})
+});
+
+it('can be used in combined value', () => {
+    return run ('use-in-combined-value');
+});
