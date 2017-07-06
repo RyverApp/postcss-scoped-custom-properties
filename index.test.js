@@ -55,5 +55,9 @@ it('can use a scoped variable in a nested scope', () => {
 });
 
 it('can be used in combined value', () => {
-    return run ('use-in-combined-value');
+    return run('use-in-combined-value');
+});
+
+it('can use more than one var in a single expression', () => {
+    return run('use-more-than-one-var');
 });

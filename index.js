@@ -54,8 +54,9 @@ function matchAll(re, text) {
     re.lastIndex = 0;
     var res = [], match;
     while ((match = re.exec(text)) !== null) {
-        res = res.concat(match);
+        res = res.concat([match]);
     }
+    re.lastIndex = 0;
     return res.length > 0 ? res : null;
 }
 
@@ -163,9 +164,9 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
                                     var currentUse = useByNode[useNodeId].props[decPropName][j];
                                     useScopePath[useScopePath.length - 1].append(postcss.decl({
                                         prop: currentUse.decl.prop,
-                                        value: currentUse.match[2]
-                                            ? 'var(' + decByNode[decNodeId].remap[decPropName] + currentUse.match[2]
-                                            : 'var(' + decByNode[decNodeId].remap[decPropName] + ')'
+                                        value: currentUse.decl.value.replace(CSS_VAR_RE, function(match, p1, p2) {
+                                            return 'var(' + decByNode[decNodeId].remap[p1] + p2 + ')'
+                                        })
                                     }));
                                 }
                             }
@@ -173,12 +174,12 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
                         // append the new use scope to the tail of the dec scope
                         decScopePath[decScopePath.length - 1].append(useScopePath[0]);
                         // place this after the rule where the property was consumed
-                        if ('after' in useScopeOrigPath[0]) {
+                        if (useScopeOrigPath[0].after) {
                             useScopeOrigPath[0].after(decScopePath[0]);
                         } else {
                             // legacy support for postcss v5
                             useScopeOrigPath[0].node.parent.insertAfter(useScopeOrigPath[0].node, decScopePath[0].node);
-                        }
+                        }                      
                     } else {
                         var useScopePath = useByNode[useNodeId].node;
                         for (var decPropName in decByNode[decNodeId].props) {
@@ -187,9 +188,9 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
                                     var currentUse = useByNode[useNodeId].props[decPropName][j];
                                     useScopePath.append(postcss.decl({
                                         prop: currentUse.decl.prop,
-                                        value: currentUse.match[2]
-                                            ? 'var(' + decByNode[decNodeId].remap[decPropName] + currentUse.match[2]
-                                            : 'var(' + decByNode[decNodeId].remap[decPropName] + ')'
+                                        value: currentUse.decl.value.replace(CSS_VAR_RE, function(match, p1, p2) {
+                                            return 'var(' + decByNode[decNodeId].remap[p1] + p2 + ')'
+                                        })
                                     }));
                                     currentUse.decl.remove();
                                 }
