@@ -1,0 +1,17 @@
+:root {
+    --var0-0: red;
+}
+
+:root {
+    --var0: blue;
+}
+
+.one {
+    color: var(--var0) !important;
+}
+
+.two {
+    & .one {
+        color: var(--var0-0) !important;
+    }
+}

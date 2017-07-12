@@ -166,7 +166,8 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
                                         prop: currentUse.decl.prop,
                                         value: currentUse.decl.value.replace(CSS_VAR_RE, function(match, p1, p2) {
                                             return 'var(' + decByNode[decNodeId].remap[p1] + p2 + ')'
-                                        })
+                                        }),
+                                        important: currentUse.decl.important
                                     }));
                                 }
                             }
@@ -179,7 +180,7 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
                         } else {
                             // legacy support for postcss v5
                             useScopeOrigPath[0].node.parent.insertAfter(useScopeOrigPath[0].node, decScopePath[0].node);
-                        }                      
+                        }
                     } else {
                         var useScopePath = useByNode[useNodeId].node;
                         for (var decPropName in decByNode[decNodeId].props) {
@@ -190,7 +191,8 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
                                         prop: currentUse.decl.prop,
                                         value: currentUse.decl.value.replace(CSS_VAR_RE, function(match, p1, p2) {
                                             return 'var(' + decByNode[decNodeId].remap[p1] + p2 + ')'
-                                        })
+                                        }),
+                                        important: currentUse.decl.important
                                     }));
                                     currentUse.decl.remove();
                                 }

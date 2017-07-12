@@ -26,7 +26,7 @@ function run(short, opts) {
     opts = opts || {};
     opts.generate = opts.generate || (generate.reset(), generate);
     var input = fs.readFileSync('./test/' + short + '.css', 'utf8');
-    var output = fs.readFileSync('./test/' + short + '.expected.css', 'utf8');    
+    var output = fs.readFileSync('./test/' + short + '.expected.css', 'utf8');
     return postcss([ plugin(opts) ]).process(input)
         .then(result => {
             expect(ignoreSpace(result.css)).toEqual(ignoreSpace(output));
@@ -34,15 +34,15 @@ function run(short, opts) {
         });
 }
 
-it('can support a basic scoped declaration', () => {    
+it('can support a basic scoped declaration', () => {
     return run('basic-declaration');
 });
 
-it('can support a nested scoped declaration', () => {    
+it('can support a nested scoped declaration', () => {
     return run('nested-declaration');
 });
 
-it('can have use in same scope ad declaration', () => {    
+it('can have use in same scope ad declaration', () => {
     return run('declaration-in-same-scope-as-use');
 });
 
@@ -60,4 +60,8 @@ it('can be used in combined value', () => {
 
 it('can use more than one var in a single expression', () => {
     return run('use-more-than-one-var');
+});
+
+it('retains important in value', () => {
+    return run('retains-important-in-value');
 });
