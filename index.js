@@ -155,7 +155,11 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
                         var useScopeOrigPath = nodePath(useByNode[useNodeId].node);
                         var useScopePath = cloneFromPath(useScopeOrigPath);
                         // use the nested selector for now
-                        useScopePath[0].selector = '& ' + useScopePath[0].selector;
+                        if (useScopePath[0].selector.indexOf(',') !== -1) {
+                            useScopePath[0].selector = '& ' + useScopePath[0].selector.replace(/[\n\r]/g, '').split(',').join(',\n& ');
+                        } else {
+                            useScopePath[0].selector = '& ' + useScopePath[0].selector;
+                        }
                         // go over each prop name that was declared by the declaring rule
                         for (var decPropName in decByNode[decNodeId].props) {
                             // put every prop in the declaring rule that is also in the consuming rule in the set

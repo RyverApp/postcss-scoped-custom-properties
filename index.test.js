@@ -65,3 +65,7 @@ it('can use more than one var in a single expression', () => {
 it('retains important in value', () => {
     return run('retains-important-in-value');
 });
+
+it('can use more than one selector per rule', () => {
+    return run('use-more-than-one-selector');
+});
