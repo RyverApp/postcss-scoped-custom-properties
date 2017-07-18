@@ -156,7 +156,10 @@ module.exports = postcss.plugin('postcss-scoped-custom-properties', function (op
                         var useScopePath = cloneFromPath(useScopeOrigPath);
                         // use the nested selector for now
                         if (useScopePath[0].selector.indexOf(',') !== -1) {
-                            useScopePath[0].selector = '& ' + useScopePath[0].selector.replace(/[\n\r]/g, '').split(',').join(',\n& ');
+                            var selectors = useScopePath[0].selector.split(',').map(function(selector) {
+                                return '& ' + selector.trim();
+                            });
+                            useScopePath[0].selector = selectors.join(', ');
                         } else {
                             useScopePath[0].selector = '& ' + useScopePath[0].selector;
                         }
