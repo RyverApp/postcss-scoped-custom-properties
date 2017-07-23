@@ -69,3 +69,7 @@ it('retains important in value', () => {
 it('can use more than one selector per rule', () => {
     return run('use-more-than-one-selector');
 });
+
+it('can be used inside media query', () => {
+    return run('use-within-media-query');
+});

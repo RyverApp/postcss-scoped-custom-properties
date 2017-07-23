@@ -1,0 +1,21 @@
+:root {
+    --var0-0: red;
+}
+
+:root {
+    --var0: blue;
+}
+
+@media (max-width: 600px) {
+    .one {
+        color: var(--var0);
+    }
+}
+
+.two {
+    @media (max-width: 600px) {
+        .one {
+            color: var(--var0-0);
+        }
+    }
+}
